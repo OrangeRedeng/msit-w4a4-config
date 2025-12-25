@@ -1,0 +1,66 @@
+apiversion: modelslim_v1
+
+default_w8a8_dynamic: &default_w8a8_dynamic
+  weight:
+    scope: "per_channel"
+    dtype: "int8"
+    symmetric: true
+    method: "autoround"
+    ext:
+      scale_dtype: "bfloat16"
+  act:
+    scope: "per_token"
+    dtype: "int8"
+    symmetric: true
+    method: "minmax"
+    ext:
+      scale_dtype: "bfloat16"
+
+
+default_w4a4_dynamic: &default_w4a4_dynamic
+  weight:
+    scope: "per_channel"
+    dtype: "int4"
+    symmetric: true
+    method: "autoround"
+    ext:
+      scale_dtype: "bfloat16"
+  act:
+    scope: "per_token"
+    dtype: "int4"
+    symmetric: true
+    method: "minmax"
+    ext:
+      scale_dtype: "bfloat16"
+
+
+spec:
+  process:
+
+    - type: "rotation_tune"
+      layer_type: ["up_proj"]
+
+    - type: "quarot"
+      online: False
+      block_size: -1
+      max_tp_size: 1
+
+    - type: "autoround_quant"
+      iters: 400
+      enable_round_tuning: true
+      strategies:
+        - qconfig: *default_w8a8_dynamic
+          exclude: 
+          - "*.up_proj"
+          - "*.gate_proj"
+
+        - qconfig: *default_w4a4_dynamic
+          include: 
+          - "*.up_proj"
+          - "*.gate_proj"
+
+  save:
+    - type: "ascendv1_saver"
+      part_file_size: 4
+  
+  dataset: laos_calib.jsonl
